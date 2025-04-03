@@ -56,23 +56,7 @@ def process_message(sender_id, message_text):
             "conversation_state": "greeting",
             "context": {}
         }
-        return {
-            "to": sender_id,
-            "messages": [{
-                "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": "Hello! Welcome to our service. How can I help you today?"},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": "menu_1", "title": "Product Info"}},
-                            {"type": "reply", "reply": {"id": "menu_2", "title": "Customer Support"}},
-                            {"type": "reply", "reply": {"id": "menu_3", "title": "Place Order"}}
-                        ]
-                    }
-                }
-            }]
-        }
+        return "Hello! Welcome to our service. How can I help you today?"
 
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
