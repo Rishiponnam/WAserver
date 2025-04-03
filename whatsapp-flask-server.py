@@ -57,148 +57,54 @@ def process_message(sender_id, message_text):
             "context": {}
         }
         return "Hello! Welcome to our service. How can I help you today?"
-
+    
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
-
+    
     if state == "greeting":
         user_sessions[sender_id]["conversation_state"] = "menu"
-        return {
-            "to": sender_id,
-            "messages": [{
-                "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": "I'm here to assist you. What would you like to do?"},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": "menu_1", "title": "Product Info"}},
-                            {"type": "reply", "reply": {"id": "menu_2", "title": "Customer Support"}},
-                            {"type": "reply", "reply": {"id": "menu_3", "title": "Place Order"}}
-                        ]
-                    }
-                }
-            }]
-        }
-
+        return "I'm here to assist you. What would you like to do?\n1. Product Information\n2. Customer Support\n3. Place an Order"
+    
     elif state == "menu":
-        if message_text in ["menu_1", "1", "Product Info"]:
+        if "1" in message_text or "product" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "product_info"
-            return {
-                "to": sender_id,
-                "messages": [{
-                    "type": "interactive",
-                    "interactive": {
-                        "type": "list",
-                        "header": {"type": "text", "text": "Available Products"},
-                        "body": {"text": "Select a product to learn more."},
-                        "footer": {"text": "Tap an option below to continue."},
-                        "action": {
-                            "button": "Select Product",
-                            "sections": [{
-                                "title": "Products",
-                                "rows": [
-                                    {"id": "product_a", "title": "Model A - $299"},
-                                    {"id": "product_b", "title": "Model B - $199"},
-                                    {"id": "product_c", "title": "Model C - $99"}
-                                ]
-                            }]
-                        }
-                    }
-                }]
-            }
-
-        elif message_text in ["menu_2", "2", "Customer Support"]:
+            return "Our latest products include Model A, Model B, and Model C. Which one would you like to know more about?"
+        elif "2" in message_text or "support" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "support"
-            return {"to": sender_id, "messages": [{"type": "text", "text": "Please describe your issue."}]}
-
-        elif message_text in ["menu_3", "3", "Place Order"]:
+            return "Please describe the issue you're experiencing."
+        elif "3" in message_text or "order" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "order"
-            return {
-                "to": sender_id,
-                "messages": [{
-                    "type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": "Choose a product to order."},
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "order_a", "title": "Model A"}},
-                                {"type": "reply", "reply": {"id": "order_b", "title": "Model B"}},
-                                {"type": "reply", "reply": {"id": "order_c", "title": "Model C"}}
-                            ]
-                        }
-                    }
-                }]
-            }
-
+            return "To place an order, please provide your product choice and quantity."
+        return "Invalid option. Please reply with 1, 2, or 3."
+    
     elif state == "product_info":
-        products = {"product_a": "Model A - $299", "product_b": "Model B - $199", "product_c": "Model C - $99"}
-        if message_text in products:
-            user_sessions[sender_id]["context"]["product_interest"] = message_text
-            user_sessions[sender_id]["conversation_state"] = "product_followup"
-            return {
-                "to": sender_id,
-                "messages": [{
-                    "type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": f"{products[message_text]}\nWould you like to place an order?"},
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "yes_order", "title": "Yes"}},
-                                {"type": "reply", "reply": {"id": "no", "title": "No"}}
-                            ]
-                        }
-                    }
-                }]
-            }
-
+        products = {"a": "Model A - $299", "b": "Model B - $199", "c": "Model C - $99"}
+        for key, description in products.items():
+            if key in message_text.lower():
+                user_sessions[sender_id]["context"]["product_interest"] = key
+                user_sessions[sender_id]["conversation_state"] = "product_followup"
+                return f"{description}\n\nWould you like to place an order?"
+        return "Please specify Model A, B, or C."
+    
     elif state == "support":
         user_sessions[sender_id]["context"]["support_issue"] = message_text
         user_sessions[sender_id]["conversation_state"] = "support_processing"
-        return {
-            "to": sender_id,
-            "messages": [{
-                "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": "Your issue has been recorded. Our support team will contact you shortly."},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": "menu", "title": "Back to Menu"}}
-                        ]
-                    }
-                }
-            }]
-        }
-
+        return "Our support team will review your issue and get back to you."
+    
     elif state == "order":
-        user_sessions[sender_id]["context"]["order_product"] = message_text
-        user_sessions[sender_id]["conversation_state"] = "order_quantity"
-        return {"to": sender_id, "messages": [{"type": "text", "text": "Please enter the quantity."}]}
-
-    elif state == "order_quantity":
         try:
             quantity = int(''.join(filter(str.isdigit, message_text)))
             if quantity > 0:
                 user_sessions[sender_id]["context"]["order_quantity"] = quantity
                 user_sessions[sender_id]["conversation_state"] = "order_confirmation"
-                return {"to": sender_id, "messages": [{"type": "text", "text": "Please provide your delivery address."}]}
+                return "Please provide your delivery address."
         except:
-            return {"to": sender_id, "messages": [{"type": "text", "text": "Please enter a valid quantity."}]}
-
+            return "Please enter a valid quantity."
+    
     elif state == "order_confirmation":
         user_sessions[sender_id]["context"]["delivery_address"] = message_text
         user_sessions[sender_id]["conversation_state"] = "order_complete"
-        return {
-            "to": sender_id,
-            "messages": [{
-                "type": "text",
-                "text": "Thank you! Your order has been placed."
-            }]
-        }
-
+        return "Thank you! Your order has been placed."
     
     user_sessions[sender_id]["conversation_state"] = "greeting"
     return "Let's start over. How can I assist you?"
