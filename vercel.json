@@ -1,15 +1,9 @@
 {
     "version": 2,
-    "builds": [
-      {
-        "src": "whatsapp-flask-server.py",
-        "use": "@vercel/python"
-      }
-    ],
     "routes": [
       {
         "src": "/(.*)",
-        "dest": "whatsapp-flask-server.py"
+        "dest": "api/index.py"
       }
     ]
-}  
+}
