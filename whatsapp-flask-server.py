@@ -131,7 +131,10 @@ def process_message(sender_id, message_text):
     elif state == "menu":
         logger.info(f"User {sender_id} selected an option: {message_text}")
 
-        if "1" in message_text:
+        if "option" in message_text.lower() or "menu" in message_text.lower():
+            send_whatsapp_message(sender_id, "Please select an option below:", message_type="buttons")
+
+        elif "1" in message_text:
             send_whatsapp_message(sender_id, "Here is your first image!", message_type="image")
         elif "2" in message_text:
             send_whatsapp_message(sender_id, "Here is your second image!", message_type="image")
@@ -167,8 +170,9 @@ def webhook():
                         sender_id = message['from']
                         message_text = message.get('text', {}).get('body', '')
 
+                        logger.info(f"Processing message from {sender_id}: {message_text}")
+
                         if sender_id:
-                            logger.info(f"Processing message from {sender_id}: {message_text}")
                             process_message(sender_id, message_text)
         return jsonify({"status": "success"}), 200
     except Exception as e:
