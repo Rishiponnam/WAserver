@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 WHATSAPP_API_URL = "https://api.heltar.com/v1/messages/send"
 WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN")
-WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN")
 
 user_sessions = {}
 
@@ -52,12 +51,21 @@ def send_text_message(recipient_number, message_text):
 
 def send_button_message(recipient_number, message_text, buttons):
     payload = {
-        "messages": [{
-            "clientWaNumber": recipient_number,
-            "message": message_text,
-            "messageType": "interactive",
-            "buttons": buttons
-        }]
+        "clientWaNumber": recipient_number,
+        "messageType": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": message_text},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": btn["id"], "title": btn["title"]}
+                    }
+                    for btn in buttons
+                ]
+            }
+        }
     }
     return send_whatsapp_message(payload)
 
@@ -110,6 +118,8 @@ def process_message(sender_id, message_text):
             send_text_message(sender_id, "Please provide product name and quantity.")
         else:
             send_text_message(sender_id, "Invalid option. Please reply with 1, 2, or 3.")
+
+    logger.info(f"Processing message from {sender_id}: {message_text}")
     
 @app.route('/')
 def home():
@@ -119,7 +129,7 @@ def home():
 def webhook():
     try:
         data = request.json
-        logger.info(f"Received webhook data: {data}")
+        logger.info(f"Received webhook raw data: {json.dumps(data, indent=2)}")
         if 'entry' in data:
             for entry in data['entry']:
                 for change in entry.get('changes', []):
