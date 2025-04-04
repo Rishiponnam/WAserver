@@ -101,6 +101,9 @@ def send_whatsapp_message(recipient_number, message_text=None, message_type="tex
         logger.error(f"Exception when sending message: {e}")
 
 def process_message(sender_id, message_text):
+    logger.info(f"Received message from {sender_id}: {message_text}")
+
+    # Initialize user session if not exists
     if sender_id not in user_sessions:
         logger.info(f"New user detected: {sender_id}. Initializing session.")
         user_sessions[sender_id] = {
@@ -111,23 +114,27 @@ def process_message(sender_id, message_text):
             "context": {}
         }
         send_whatsapp_message(sender_id, "Hello! Welcome to our service. How can I help you today?")
-        return
+        return  
 
+    # Update last interaction timestamp
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
+    logger.info(f"Current state for {sender_id}: {state}")
 
+    # Move to menu state if the user sends any new message after greeting
     if state == "greeting":
+        logger.info(f"Moving {sender_id} to 'menu' state.")
         user_sessions[sender_id]["conversation_state"] = "menu"
         send_whatsapp_message(sender_id, "Please select an option below:", message_type="buttons")
-        return
+        return  
 
     elif state == "menu":
+        logger.info(f"User {sender_id} selected an option: {message_text}")
+
         if "1" in message_text:
-            user_sessions[sender_id]["conversation_state"] = "image_1"
-            send_whatsapp_message(sender_id, message_type="image")
+            send_whatsapp_message(sender_id, "Here is your first image!", message_type="image")
         elif "2" in message_text:
-            user_sessions[sender_id]["conversation_state"] = "image_2"
-            send_whatsapp_message(sender_id, message_type="image")
+            send_whatsapp_message(sender_id, "Here is your second image!", message_type="image")
         elif "3" in message_text:
             send_whatsapp_message(sender_id, message_type="location")
         elif "4" in message_text:
@@ -136,7 +143,12 @@ def process_message(sender_id, message_text):
             send_whatsapp_message(sender_id, "Here’s a normal text message.")
         else:
             send_whatsapp_message(sender_id, "Invalid option. Please choose from the buttons.", message_type="buttons")
-        return
+        return  
+
+    # Default case: Restart if stuck
+    logger.info(f"Unexpected state '{state}' for {sender_id}. Restarting session.")
+    user_sessions[sender_id]["conversation_state"] = "greeting"
+    send_whatsapp_message(sender_id, "Let's start over. How can I assist you?")
 
 @app.route('/')
 def home():
