@@ -101,23 +101,42 @@ def send_whatsapp_message(recipient_number, message_text=None, message_type="tex
         logger.error(f"Exception when sending message: {e}")
 
 def process_message(sender_id, message_text):
-    send_whatsapp_message(sender_id, "Test message working!")
-    
+    if sender_id not in user_sessions:
+        logger.info(f"New user detected: {sender_id}. Initializing session.")
+        user_sessions[sender_id] = {
+            "session_id": str(uuid.uuid4()),
+            "created_at": datetime.now(),
+            "last_interaction": datetime.now(),
+            "conversation_state": "greeting",
+            "context": {}
+        }
+        send_whatsapp_message(sender_id, "Hello! Welcome to our service. How can I help you today?")
+        return
 
     user_sessions[sender_id]["last_interaction"] = datetime.now()
+    state = user_sessions[sender_id]["conversation_state"]
 
-    if message_text == "1":
-        send_whatsapp_message(sender_id, "", message_type="image")
-    elif message_text == "2":
-        send_whatsapp_message(sender_id, "", message_type="image2")
-    elif message_text == "3":
-        send_whatsapp_message(sender_id, "", message_type="location")
-    elif message_text == "4":
-        send_whatsapp_message(sender_id, "", message_type="contact")
-    elif message_text == "5":
-        send_whatsapp_message(sender_id, "This is a normal text message.")
-    else:
-        send_whatsapp_message(sender_id, "Please choose a valid option:", message_type="buttons")
+    if state == "greeting":
+        user_sessions[sender_id]["conversation_state"] = "menu"
+        send_whatsapp_message(sender_id, "Please select an option below:", message_type="buttons")
+        return
+
+    elif state == "menu":
+        if "1" in message_text:
+            user_sessions[sender_id]["conversation_state"] = "image_1"
+            send_whatsapp_message(sender_id, message_type="image")
+        elif "2" in message_text:
+            user_sessions[sender_id]["conversation_state"] = "image_2"
+            send_whatsapp_message(sender_id, message_type="image")
+        elif "3" in message_text:
+            send_whatsapp_message(sender_id, message_type="location")
+        elif "4" in message_text:
+            send_whatsapp_message(sender_id, message_type="contact")
+        elif "5" in message_text:
+            send_whatsapp_message(sender_id, "Here’s a normal text message.")
+        else:
+            send_whatsapp_message(sender_id, "Invalid option. Please choose from the buttons.", message_type="buttons")
+        return
 
 @app.route('/')
 def home():
@@ -127,15 +146,17 @@ def home():
 def webhook():
     try:
         data = request.json
-        logger.info(f"Received webhook data: {json.dumps(data)}")
+        logger.info(f"Received webhook data: {json.dumps(data, indent=2)}")
+
         if 'entry' in data:
             for entry in data['entry']:
                 for change in entry.get('changes', []):
                     for message in change.get('value', {}).get('messages', []):
-                        if message['type'] == 'text':
-                            sender_id = message['from']
-                            message_text = message['text']['body']
-                            logger.info(f"Incoming message from {sender_id}: {message_text}")
+                        sender_id = message['from']
+                        message_text = message.get('text', {}).get('body', '')
+
+                        if sender_id:
+                            logger.info(f"Processing message from {sender_id}: {message_text}")
                             process_message(sender_id, message_text)
         return jsonify({"status": "success"}), 200
     except Exception as e:
