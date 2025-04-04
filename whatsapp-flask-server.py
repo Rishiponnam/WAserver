@@ -111,6 +111,10 @@ def process_message(sender_id, message_text):
         else:
             send_text_message(sender_id, "Invalid option. Please reply with 1, 2, or 3.")
     
+@app.route('/')
+def home():
+    return jsonify({"message": "WhatsApp Flask Server is Running!"})
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -128,6 +132,10 @@ def webhook():
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route('/status', methods=['GET'])
+def status():
+    return jsonify({"status": "active", "active_sessions": len(user_sessions), "timestamp": datetime.now().isoformat()})
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
