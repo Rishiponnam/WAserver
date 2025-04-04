@@ -24,98 +24,77 @@ WHATSAPP_API_URL = "https://api.heltar.com/v1/messages/send"
 WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN")
 user_sessions = {}
 
-def send_whatsapp_message(recipient_number, message, message_type="text"):
+def send_whatsapp_message(recipient_number, message_text=None, message_type="text"):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {WHATSAPP_API_TOKEN}"
     }
 
+    message = {
+        "clientWaNumber": recipient_number,
+        "messageType": message_type,
+    }
+
     if message_type == "text":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "message": message,
-                "messageType": "text"
-            }]
-        }
+        message["message"] = message_text or "Hello from server"
+    
     elif message_type == "buttons":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "messageType": "interactiveButtons",
-                "interactiveButtons": {
-                    "title": message,
-                    "buttons": [
-                        {"id": "1", "title": "1"},
-                        {"id": "2", "title": "2"},
-                        {"id": "3", "title": "3"},
-                        {"id": "4", "title": "4"},
-                        {"id": "5", "title": "5"}
-                    ]
-                }
-            }]
+        message["interactive"] = {
+            "type": "button",
+            "body": {
+                "text": message_text or "Choose an option"
+            },
+            "action": {
+                "buttons": [
+                    {"type": "reply", "reply": {"id": "1", "title": "1"}},
+                    {"type": "reply", "reply": {"id": "2", "title": "2"}},
+                    {"type": "reply", "reply": {"id": "3", "title": "3"}},
+                    {"type": "reply", "reply": {"id": "4", "title": "4"}},
+                    {"type": "reply", "reply": {"id": "5", "title": "5"}},
+                ]
+            }
         }
+
     elif message_type == "image":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "messageType": "image",
-                "image": {
-                    "url": "https://www.google.co.in/imgres?q=random%20photos&imgurl=https%3A%2F%2Fcdn.pixabay.com%2Fphoto%2F2016%2F07%2F07%2F16%2F46%2Fdice-1502706_640.jpg&imgrefurl=https%3A%2F%2Fpixabay.com%2Fimages%2Fsearch%2Frandom%2F&docid=RaG63Wpx0MhExM&tbnid=RX3IsDRqbm7WyM&vet=12ahUKEwjf4NvQ0L2MAxUGd_UHHQYlM7UQM3oECEgQAA..i&w=640&h=427&hcb=2&ved=2ahUKEwjf4NvQ0L2MAxUGd_UHHQYlM7UQM3oECEgQAA"
-                }
-            }]
+        message["message"] = {
+            "url": "https://via.placeholder.com/300",  # replace with real URL
+            "caption": "Here's an image"
         }
-    elif message_type == "image2":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "messageType": "image",
-                "image": {
-                    "url": "https://www.google.co.in/imgres?q=random%20photos%20of%20things&imgurl=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F9304725%2Fpexels-photo-9304725.jpeg%3Fcs%3Dsrgb%26dl%3Dpexels-jj-jordan-44924743-9304725.jpg%26fm%3Djpg&imgrefurl=https%3A%2F%2Fwww.pexels.com%2Fsearch%2Frandom%2520objects%2F&docid=fWWQgzUAPejkDM&tbnid=c25_s8kVWDGc-M&vet=12ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA..i&w=3681&h=4601&hcb=2&ved=2ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA"
-                }
-            }]
-        }
+
     elif message_type == "location":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "messageType": "location",
-                "location": {
-                    "latitude": 37.7749,
-                    "longitude": -122.4194,
-                    "name": "San Francisco",
-                    "address": "California, USA"
-                }
-            }]
+        message["message"] = {
+            "latitude": "37.422", 
+            "longitude": "-122.084", 
+            "name": "Google HQ"
         }
+
     elif message_type == "contact":
-        payload = {
-            "messages": [{
-                "clientWaNumber": recipient_number,
-                "messageType": "contact",
-                "contact": {
-                    "name": {
-                        "formattedName": "John Doe",
-                        "firstName": "John",
-                        "lastName": "Doe"
-                    },
-                    "phones": [{
-                        "phone": "+1234567890",
-                        "type": "MOBILE"
-                    }]
+        message["message"] = {
+            "contacts": [
+                {
+                    "name": {"firstName": "Support", "lastName": "Team"},
+                    "phones": [{"phone": "+1234567890"}],
                 }
-            }]
+            ]
         }
+
+    elif message_type == "document":
+        message["message"] = {
+            "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            "filename": "sample.pdf",
+            "caption": "Download this document"
+        }
+
     else:
-        return None
+        message["message"] = message_text or "Unsupported message type"
+
+    payload = {"messages": [message]}
 
     try:
         response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
-        logger.info(f"Message sent to {recipient_number}. Response: {response.text}")
-        return response.json()
+        logger.info(f"Message sent to {recipient_number}: {response.status_code} - {response.text}")
     except Exception as e:
         logger.error(f"Error sending WhatsApp message: {str(e)}")
-        return None
 
 def process_message(sender_id, message_text):
     if sender_id not in user_sessions:
@@ -158,6 +137,7 @@ def webhook():
                         if message['type'] == 'text':
                             sender_id = message['from']
                             message_text = message['text']['body']
+                            logger.info(f"Incoming message from {sender_id}: {message_text}")
                             process_message(sender_id, message_text)
         return jsonify({"status": "success"}), 200
     except Exception as e:
