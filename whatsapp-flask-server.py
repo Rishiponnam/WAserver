@@ -50,6 +50,10 @@ def send_text_message(recipient_number, message_text):
     return send_whatsapp_message(payload)
 
 def send_button_message(recipient_number, message_text, buttons):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {WHATSAPP_API_TOKEN}"
+    }
     payload = {
         "clientWaNumber": recipient_number,
         "messageType": "interactive",
@@ -67,7 +71,13 @@ def send_button_message(recipient_number, message_text, buttons):
             }
         }
     }
-    return send_whatsapp_message(payload)
+    try:
+        response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
+        logger.info(f"Message sent to {recipient_number}. Response: {response.text}")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp buttons: {str(e)}")
+        return None
 
 def send_media_message(recipient_number, media_url, caption, media_type="image"):
     payload = {
