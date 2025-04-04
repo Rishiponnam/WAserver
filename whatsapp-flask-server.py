@@ -4,7 +4,7 @@ import requests
 import logging
 import uuid
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_session import Session
 from dotenv import load_dotenv
 
@@ -23,23 +23,15 @@ logger = logging.getLogger(__name__)
 
 WHATSAPP_API_URL = "https://api.heltar.com/v1/messages/send"
 WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN")
+WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN")
 
 user_sessions = {}
 
-def send_whatsapp_message(payload):
+def send_whatsapp_message(recipient_number, message_text):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {WHATSAPP_API_TOKEN}"
     }
-    try:
-        response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
-        logger.info(f"Message sent. Response: {response.text}")
-        return response.json()
-    except Exception as e:
-        logger.error(f"Error sending WhatsApp message: {str(e)}")
-        return None
-
-def send_text_message(recipient_number, message_text):
     payload = {
         "messages": [{
             "clientWaNumber": recipient_number,
@@ -47,48 +39,13 @@ def send_text_message(recipient_number, message_text):
             "messageType": "text"
         }]
     }
-    return send_whatsapp_message(payload)
-
-def send_button_message(recipient_number, message_text, buttons):
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {WHATSAPP_API_TOKEN}"
-    }
-    payload = {
-        "clientWaNumber": recipient_number,
-        "messageType": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {"text": message_text},
-            "action": {
-                "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {"id": btn["id"], "title": btn["title"]}
-                    }
-                    for btn in buttons
-                ]
-            }
-        }
-    }
     try:
         response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
         logger.info(f"Message sent to {recipient_number}. Response: {response.text}")
         return response.json()
     except Exception as e:
-        logger.error(f"Error sending WhatsApp buttons: {str(e)}")
+        logger.error(f"Error sending WhatsApp message: {str(e)}")
         return None
-
-def send_media_message(recipient_number, media_url, caption, media_type="image"):
-    payload = {
-        "messages": [{
-            "clientWaNumber": recipient_number,
-            "message": caption,
-            "messageType": media_type,
-            "mediaUrl": media_url
-        }]
-    }
-    return send_whatsapp_message(payload)
 
 def process_message(sender_id, message_text):
     if sender_id not in user_sessions:
@@ -99,37 +56,59 @@ def process_message(sender_id, message_text):
             "conversation_state": "greeting",
             "context": {}
         }
-        return send_button_message(sender_id, "Welcome! Choose an option:", [
-            {"id": "1", "title": "Product Info"},
-            {"id": "2", "title": "Customer Support"},
-            {"id": "3", "title": "Place an Order"}
-        ])
+        return "Hello! Welcome to our service. How can I help you today?"
     
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
     
     if state == "greeting":
         user_sessions[sender_id]["conversation_state"] = "menu"
-        return send_button_message(sender_id, "What would you like to do?", [
-            {"id": "1", "title": "Product Info"},
-            {"id": "2", "title": "Customer Support"},
-            {"id": "3", "title": "Place an Order"}
-        ])
+        return "I'm here to assist you. What would you like to do?\n1. Product Information\n2. Customer Support\n3. Place an Order"
+    
     elif state == "menu":
         if "1" in message_text or "product" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "product_info"
-            return send_media_message(sender_id, "https://www.google.co.in/imgres?q=random%20photos%20of%20things&imgurl=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F9304725%2Fpexels-photo-9304725.jpeg%3Fcs%3Dsrgb%26dl%3Dpexels-jj-jordan-44924743-9304725.jpg%26fm%3Djpg&imgrefurl=https%3A%2F%2Fwww.pexels.com%2Fsearch%2Frandom%2520objects%2F&docid=fWWQgzUAPejkDM&tbnid=c25_s8kVWDGc-M&vet=12ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA..i&w=3681&h=4601&hcb=2&ved=2ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA", "Check out our latest product!")
+            return "Our latest products include Model A, Model B, and Model C. Which one would you like to know more about?"
         elif "2" in message_text or "support" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "support"
-            send_text_message(sender_id, "Please describe your issue.")
+            return "Please describe the issue you're experiencing."
         elif "3" in message_text or "order" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "order"
-            send_text_message(sender_id, "Please provide product name and quantity.")
-        else:
-            send_text_message(sender_id, "Invalid option. Please reply with 1, 2, or 3.")
-
-    logger.info(f"Processing message from {sender_id}: {message_text}")
+            return "To place an order, please provide your product choice and quantity."
+        return "Invalid option. Please reply with 1, 2, or 3."
     
+    elif state == "product_info":
+        products = {"a": "Model A - $299", "b": "Model B - $199", "c": "Model C - $99"}
+        for key, description in products.items():
+            if key in message_text.lower():
+                user_sessions[sender_id]["context"]["product_interest"] = key
+                user_sessions[sender_id]["conversation_state"] = "product_followup"
+                return f"{description}\n\nWould you like to place an order?"
+        return "Please specify Model A, B, or C."
+    
+    elif state == "support":
+        user_sessions[sender_id]["context"]["support_issue"] = message_text
+        user_sessions[sender_id]["conversation_state"] = "support_processing"
+        return "Our support team will review your issue and get back to you."
+    
+    elif state == "order":
+        try:
+            quantity = int(''.join(filter(str.isdigit, message_text)))
+            if quantity > 0:
+                user_sessions[sender_id]["context"]["order_quantity"] = quantity
+                user_sessions[sender_id]["conversation_state"] = "order_confirmation"
+                return "Please provide your delivery address."
+        except:
+            return "Please enter a valid quantity."
+    
+    elif state == "order_confirmation":
+        user_sessions[sender_id]["context"]["delivery_address"] = message_text
+        user_sessions[sender_id]["conversation_state"] = "order_complete"
+        return "Thank you! Your order has been placed."
+    
+    user_sessions[sender_id]["conversation_state"] = "greeting"
+    return "Let's start over. How can I assist you?"
+
 @app.route('/')
 def home():
     return jsonify({"message": "WhatsApp Flask Server is Running!"})
@@ -138,7 +117,7 @@ def home():
 def webhook():
     try:
         data = request.json
-        logger.info(f"Received webhook raw data: {json.dumps(data, indent=2)}")
+        logger.info(f"Received webhook data: {data}")
         if 'entry' in data:
             for entry in data['entry']:
                 for change in entry.get('changes', []):
@@ -146,12 +125,13 @@ def webhook():
                         if message['type'] == 'text':
                             sender_id = message['from']
                             message_text = message['text']['body']
-                            process_message(sender_id, message_text)
+                            response_text = process_message(sender_id, message_text)
+                            send_whatsapp_message(sender_id, response_text)
         return jsonify({"status": "success"}), 200
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-    
+
 @app.route('/status', methods=['GET'])
 def status():
     return jsonify({"status": "active", "active_sessions": len(user_sessions), "timestamp": datetime.now().isoformat()})
