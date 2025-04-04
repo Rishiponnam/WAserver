@@ -30,6 +30,24 @@ def create_text_payload(recipient_number, message_text):
         }]
     }
 
+def create_media_payload(recipient_number, media_type, media_url, file_name, mime_type):
+    if media_type not in ["audio", "document", "image", "video"]:
+        raise ValueError("Invalid media type. Must be one of: audio, document, image, video")
+    
+    return {
+        "messages": [
+            {
+                "clientWaNumber": recipient_number,
+                "mediaType": media_type,
+                "url": media_url,
+                "name": file_name,
+                "size": 212732,
+                "mimeType": mime_type,
+                "messageType": "media"
+            }
+        ]
+    }
+
 def create_contact_payload(recipient_number, formatted_name, phone_wa_id, prefix=None):
     contact = {
         "name": {
@@ -319,6 +337,16 @@ def process_message(sender_id, message_text=None, interactive_reply=None):
             context.pop("product_interest", None)
             context.pop("product_interest_title", None)
 
+            image_payload = create_media_payload(
+                recipient_number=sender_id,
+                media_type="image",
+                media_url="https://imgs.search.brave.com/vcJgDQviE0Vle5o55uI7pg3HQvGiIDzrQYHXM0-VE7o/rs:fit:500:0:0:0/g:ce/aHR0cHM6Ly90aHVt/YnMuZHJlYW1zdGlt/ZS5jb20vYi9vcmRl/ci1wbGFjZWQtZS1j/b21tZXJjZS1tb2Rl/bC1vbmxpbmUtc3Rv/cmUtZGVsaXZlcnkt/Ym9va2luZy1wcm9j/ZXNzLW9yZGVyLXBs/YWNlZC1jb3VyaWVy/LXNlcnZpY2Utc2hp/cHBpbmctY29uZGl0/aW9ucy1wdXJjaGFz/ZS1tYWRlLTI3NDQ1/NjY2NS5qcGc",
+                file_name="order_success.png",
+                mime_type="image/png"
+            )
+
+            send_whatsapp_message(image_payload)
+
             session["conversation_state"] = "menu"
             menu_buttons = [
                  {'id': 'menu_product_info', 'title': 'Product Information'},
@@ -392,6 +420,12 @@ def webhook():
                                     payload = None
                                     if response_type == 'text':
                                         payload = create_text_payload(sender_id, response_data['message_text'])
+                                    elif response_type == 'media':
+                                        payload = create_media_payload(sender_id,
+                                                                        response_data['media_type'],
+                                                                        response_data['media_url'],
+                                                                        response_data['file_name'],
+                                                                        response_data['mime_type'])
                                     elif response_type == 'button':
                                         payload = create_button_payload(sender_id,
                                                                         response_data['body_text'],
