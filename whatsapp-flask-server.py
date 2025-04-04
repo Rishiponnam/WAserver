@@ -55,73 +55,39 @@ def send_whatsapp_message(recipient_number, message_text=None, message_type="tex
             }
         }
 
-    elif message_type == "image":
-        message["message"] = {
-            "url": "https://via.placeholder.com/300",  # Change this to a valid image URL if needed
-            "caption": "Here’s an image"
-        }
-
-    elif message_type == "location":
-        message["message"] = {
-            "latitude": "37.422",
-            "longitude": "-122.084",
-            "name": "Google HQ"
-        }
-
-    elif message_type == "contact":
-        message["message"] = {
-            "contacts": [
-                {
-                    "name": {"firstName": "Support", "lastName": "Team"},
-                    "phones": [{"phone": "+1234567890"}],
-                }
-            ]
-        }
-
-    elif message_type == "document":
-        message["message"] = {
-            "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-            "filename": "sample.pdf",
-            "caption": "Sample PDF"
-        }
-
     else:
         message["message"] = message_text or "Fallback message"
 
     payload = {"messages": [message]}
-
-    logger.info("Sending payload to WhatsApp API:")
-    logger.info(json.dumps(payload, indent=2))
+    logger.info(f"Sending message: {json.dumps(payload, indent=2)}")
 
     try:
         response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
-        logger.info(f"Response status: {response.status_code}")
-        logger.info(f"Response content: {response.text}")
+        logger.info(f"Response: {response.status_code} - {response.text}")
     except Exception as e:
-        logger.error(f"Exception when sending message: {e}")
+        logger.error(f"Error sending message: {e}")
 
 def process_message(sender_id, message_text):
     logger.info(f"Received message from {sender_id}: {message_text}")
 
-    # Initialize user session if not exists
+    # Initialize session if not exists
     if sender_id not in user_sessions:
-        logger.info(f"New user detected: {sender_id}. Initializing session.")
         user_sessions[sender_id] = {
             "session_id": str(uuid.uuid4()),
             "created_at": datetime.now(),
             "last_interaction": datetime.now(),
-            "conversation_state": "greeting",
-            "context": {}
+            "conversation_state": "greeting"
         }
+        logger.info(f"New user session started for {sender_id}.")
         send_whatsapp_message(sender_id, "Hello! Welcome to our service. How can I help you today?")
         return  
 
-    # Update last interaction timestamp
+    # Update last interaction
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
     logger.info(f"Current state for {sender_id}: {state}")
 
-    # Move to menu state if the user sends any new message after greeting
+    # Transition from greeting to menu
     if state == "greeting":
         logger.info(f"Moving {sender_id} to 'menu' state.")
         user_sessions[sender_id]["conversation_state"] = "menu"
@@ -129,39 +95,39 @@ def process_message(sender_id, message_text):
         return  
 
     elif state == "menu":
-        logger.info(f"User {sender_id} selected an option: {message_text}")
+        logger.info(f"{sender_id} selected: {message_text}")
 
         if "option" in message_text.lower() or "menu" in message_text.lower():
             send_whatsapp_message(sender_id, "Please select an option below:", message_type="buttons")
 
-        elif "1" in message_text:
-            send_whatsapp_message(sender_id, "Here is your first image!", message_type="image")
-        elif "2" in message_text:
-            send_whatsapp_message(sender_id, "Here is your second image!", message_type="image")
-        elif "3" in message_text:
-            send_whatsapp_message(sender_id, message_type="location")
-        elif "4" in message_text:
-            send_whatsapp_message(sender_id, message_type="contact")
-        elif "5" in message_text:
-            send_whatsapp_message(sender_id, "Here’s a normal text message.")
+        elif message_text in ["1", "2", "3", "4", "5"]:
+            handle_option_selection(sender_id, message_text)
         else:
             send_whatsapp_message(sender_id, "Invalid option. Please choose from the buttons.", message_type="buttons")
         return  
 
-    # Default case: Restart if stuck
-    logger.info(f"Unexpected state '{state}' for {sender_id}. Restarting session.")
+    # Restart session if something goes wrong
+    logger.warning(f"Unexpected state '{state}' for {sender_id}. Restarting session.")
     user_sessions[sender_id]["conversation_state"] = "greeting"
     send_whatsapp_message(sender_id, "Let's start over. How can I assist you?")
 
-@app.route('/')
-def home():
-    return jsonify({"message": "WhatsApp Flask Server is Running!"})
+def handle_option_selection(sender_id, option):
+    if option == "1":
+        send_whatsapp_message(sender_id, "Here is your first image!", message_type="image")
+    elif option == "2":
+        send_whatsapp_message(sender_id, "Here is your second image!", message_type="image")
+    elif option == "3":
+        send_whatsapp_message(sender_id, message_type="location")
+    elif option == "4":
+        send_whatsapp_message(sender_id, message_type="contact")
+    elif option == "5":
+        send_whatsapp_message(sender_id, "Here’s a normal text message.")
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
         data = request.json
-        logger.info(f"Received webhook data: {json.dumps(data, indent=2)}")
+        logger.info(f"📥 Received webhook: {json.dumps(data, indent=2)}")
 
         if 'entry' in data:
             for entry in data['entry']:
@@ -170,10 +136,9 @@ def webhook():
                         sender_id = message['from']
                         message_text = message.get('text', {}).get('body', '')
 
-                        logger.info(f"Processing message from {sender_id}: {message_text}")
-
-                        if sender_id:
+                        if sender_id and message_text:
                             process_message(sender_id, message_text)
+
         return jsonify({"status": "success"}), 200
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
