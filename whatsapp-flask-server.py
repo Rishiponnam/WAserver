@@ -155,7 +155,8 @@ def webhook():
                             sender_id = message['from']
                             message_text = message['text']['body']
                             response_text = process_message(sender_id, message_text)
-                            send_whatsapp_message(sender_id, response_text)
+                            if response_text:
+                                send_whatsapp_message(sender_id, response_text)
         return jsonify({"status": "success"}), 200
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}")
