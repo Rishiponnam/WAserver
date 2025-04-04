@@ -57,14 +57,14 @@ def send_whatsapp_message(recipient_number, message_text=None, message_type="tex
 
     elif message_type == "image":
         message["message"] = {
-            "url": "https://via.placeholder.com/300",  # replace with real URL
-            "caption": "Here's an image"
+            "url": "https://via.placeholder.com/300",  # Change this to a valid image URL if needed
+            "caption": "Here’s an image"
         }
 
     elif message_type == "location":
         message["message"] = {
-            "latitude": "37.422", 
-            "longitude": "-122.084", 
+            "latitude": "37.422",
+            "longitude": "-122.084",
             "name": "Google HQ"
         }
 
@@ -82,29 +82,27 @@ def send_whatsapp_message(recipient_number, message_text=None, message_type="tex
         message["message"] = {
             "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
             "filename": "sample.pdf",
-            "caption": "Download this document"
+            "caption": "Sample PDF"
         }
 
     else:
-        message["message"] = message_text or "Unsupported message type"
+        message["message"] = message_text or "Fallback message"
 
     payload = {"messages": [message]}
 
+    logger.info("Sending payload to WhatsApp API:")
+    logger.info(json.dumps(payload, indent=2))
+
     try:
         response = requests.post(WHATSAPP_API_URL, headers=headers, data=json.dumps(payload))
-        logger.info(f"Message sent to {recipient_number}: {response.status_code} - {response.text}")
+        logger.info(f"Response status: {response.status_code}")
+        logger.info(f"Response content: {response.text}")
     except Exception as e:
-        logger.error(f"Error sending WhatsApp message: {str(e)}")
+        logger.error(f"Exception when sending message: {e}")
 
 def process_message(sender_id, message_text):
-    if sender_id not in user_sessions:
-        user_sessions[sender_id] = {
-            "session_id": str(uuid.uuid4()),
-            "created_at": datetime.now(),
-            "last_interaction": datetime.now(),
-        }
-        send_whatsapp_message(sender_id, "Hello! Please choose an option:", message_type="buttons")
-        return
+    send_whatsapp_message(sender_id, "Test message working!")
+    
 
     user_sessions[sender_id]["last_interaction"] = datetime.now()
 
