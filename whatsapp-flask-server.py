@@ -99,19 +99,18 @@ def process_message(sender_id, message_text):
             "conversation_state": "greeting",
             "context": {}
         }
-        send_button_message(sender_id, "Welcome! Choose an option:", [
+        return send_button_message(sender_id, "Welcome! Choose an option:", [
             {"id": "1", "title": "Product Info"},
             {"id": "2", "title": "Customer Support"},
             {"id": "3", "title": "Place an Order"}
         ])
-        return
     
     user_sessions[sender_id]["last_interaction"] = datetime.now()
     state = user_sessions[sender_id]["conversation_state"]
     
     if state == "greeting":
         user_sessions[sender_id]["conversation_state"] = "menu"
-        send_button_message(sender_id, "What would you like to do?", [
+        return send_button_message(sender_id, "What would you like to do?", [
             {"id": "1", "title": "Product Info"},
             {"id": "2", "title": "Customer Support"},
             {"id": "3", "title": "Place an Order"}
@@ -119,7 +118,7 @@ def process_message(sender_id, message_text):
     elif state == "menu":
         if "1" in message_text or "product" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "product_info"
-            send_media_message(sender_id, "https://www.google.co.in/imgres?q=random%20photos%20of%20things&imgurl=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F9304725%2Fpexels-photo-9304725.jpeg%3Fcs%3Dsrgb%26dl%3Dpexels-jj-jordan-44924743-9304725.jpg%26fm%3Djpg&imgrefurl=https%3A%2F%2Fwww.pexels.com%2Fsearch%2Frandom%2520objects%2F&docid=fWWQgzUAPejkDM&tbnid=c25_s8kVWDGc-M&vet=12ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA..i&w=3681&h=4601&hcb=2&ved=2ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA", "Check out our latest product!")
+            return send_media_message(sender_id, "https://www.google.co.in/imgres?q=random%20photos%20of%20things&imgurl=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F9304725%2Fpexels-photo-9304725.jpeg%3Fcs%3Dsrgb%26dl%3Dpexels-jj-jordan-44924743-9304725.jpg%26fm%3Djpg&imgrefurl=https%3A%2F%2Fwww.pexels.com%2Fsearch%2Frandom%2520objects%2F&docid=fWWQgzUAPejkDM&tbnid=c25_s8kVWDGc-M&vet=12ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA..i&w=3681&h=4601&hcb=2&ved=2ahUKEwja1PzA1r2MAxWfh68BHW45BIMQM3oECGsQAA", "Check out our latest product!")
         elif "2" in message_text or "support" in message_text.lower():
             user_sessions[sender_id]["conversation_state"] = "support"
             send_text_message(sender_id, "Please describe your issue.")
